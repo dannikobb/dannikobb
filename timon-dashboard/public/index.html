@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="is">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GR Verk — Starfsmannavakt</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+</head>
+<body class="bg-slate-100 text-slate-900 min-h-screen">
+  <div id="pinGate" class="hidden fixed inset-0 z-50 bg-slate-950/80 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
+      <h2 class="text-xl font-bold mb-2">PIN / Aðgangskóði</h2>
+      <p class="text-sm text-slate-600 mb-4">Sláðu inn PIN til að opna mælaborðið.</p>
+      <input id="pinInput" type="password" class="w-full border rounded-lg p-2 mb-3" placeholder="PIN" />
+      <button id="pinSubmit" class="w-full bg-blue-700 text-white py-2 rounded-lg">Opna</button>
+      <p id="pinError" class="text-red-600 text-sm mt-2 hidden">Rangt PIN.</p>
+    </div>
+  </div>
+
+  <div class="max-w-7xl mx-auto p-3 md:p-6">
+    <header class="bg-white rounded-xl shadow p-4 md:p-6 mb-4">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-lg bg-blue-100 text-blue-700 font-bold grid place-items-center">LOGO</div>
+          <div>
+            <h1 class="text-xl md:text-2xl font-bold">GR Verk — Starfsmannavakt</h1>
+            <p id="lastUpdated" class="text-sm text-slate-600">Síðast uppfært: -</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <span id="countdown" class="text-sm bg-slate-100 px-3 py-1 rounded-full">Auto update in --:--</span>
+          <button id="refreshBtn" class="bg-blue-700 hover:bg-blue-800 text-white text-sm px-3 py-2 rounded-lg">Uppfæra núna</button>
+          <button id="settingsBtn" class="bg-slate-800 text-white text-sm px-3 py-2 rounded-lg">⚙️</button>
+        </div>
+      </div>
+      <p id="staleWarning" class="hidden mt-3 text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 text-sm"></p>
+      <div class="mt-4 flex flex-wrap gap-2">
+        <button data-view="today" class="view-btn bg-blue-700 text-white px-3 py-2 rounded-lg text-sm">Í dag</button>
+        <button data-view="weekly" class="view-btn bg-slate-200 px-3 py-2 rounded-lg text-sm">Viku yfirlit</button>
+        <button data-view="employees" class="view-btn bg-slate-200 px-3 py-2 rounded-lg text-sm">Starfsmenn</button>
+      </div>
+    </header>
+
+    <section id="summaryCards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4"></section>
+
+    <section id="todayView" class="space-y-3"></section>
+
+    <section id="weeklyView" class="hidden bg-white rounded-xl shadow p-4 overflow-auto"></section>
+
+    <section id="employeeView" class="hidden space-y-3">
+      <div class="bg-white rounded-xl shadow p-4">
+        <input id="employeeSearch" class="w-full border rounded-lg p-2" placeholder="Leita að starfsmanni / Search employee" />
+      </div>
+      <div id="employeeResults" class="space-y-3"></div>
+    </section>
+
+    <section class="bg-white rounded-xl shadow p-4 mt-4">
+      <h3 class="font-semibold mb-2">Deila / Share</h3>
+      <div class="flex flex-col md:flex-row gap-4 items-start">
+        <div id="qrCode" class="p-2 border rounded-lg bg-white"></div>
+        <div>
+          <p class="text-sm text-slate-700">Skannaðu QR kóðann til að opna mælaborðið í síma.</p>
+          <p id="localUrl" class="text-sm font-mono mt-1"></p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div id="settingsPanel" class="hidden fixed inset-0 z-40 bg-slate-900/50 p-4 overflow-auto">
+    <div class="bg-white rounded-xl max-w-xl mx-auto p-5">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-lg font-bold">Stillingar / Settings</h2>
+        <button id="closeSettings" class="text-slate-500">✖</button>
+      </div>
+      <div class="space-y-3">
+        <label class="block text-sm">API notandi (SSN)
+          <input id="setUsername" class="mt-1 w-full border rounded p-2" />
+        </label>
+        <label class="block text-sm">API lykilorð
+          <input id="setPassword" type="password" class="mt-1 w-full border rounded p-2" />
+        </label>
+        <label class="block text-sm">PIN (optional)
+          <input id="setPin" class="mt-1 w-full border rounded p-2" />
+        </label>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="block text-sm">Frá dagsetningu
+            <input id="fromDate" type="date" class="mt-1 w-full border rounded p-2" />
+          </label>
+          <label class="block text-sm">Til dagsetningar
+            <input id="toDate" type="date" class="mt-1 w-full border rounded p-2" />
+          </label>
+        </div>
+        <label class="flex items-center gap-2 text-sm">
+          <input id="showInactive" type="checkbox" checked />
+          Sýna starfsmenn án nýlegra skráninga
+        </label>
+        <button id="saveSettings" class="bg-blue-700 text-white px-3 py-2 rounded-lg">Vista stillingar</button>
+        <p id="settingsStatus" class="text-sm"></p>
+      </div>
+    </div>
+  </div>
+
+  <div id="employeeModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 p-4">
+    <div class="bg-white rounded-xl shadow max-w-lg mx-auto p-5 max-h-[85vh] overflow-auto">
+      <div class="flex justify-between items-center mb-2">
+        <h3 id="modalTitle" class="font-bold"></h3>
+        <button id="closeModal">✖</button>
+      </div>
+      <ul id="modalList" class="list-disc pl-5 text-sm space-y-1"></ul>
+    </div>
+  </div>
+
+<script>
+const state = {
+  data: null,
+  config: null,
+  currentView: 'today',
+  refreshEvery: 300,
+  countdown: 300,
+  range: { fromDate: '', toDate: '' },
+};
+
+const el = (id) => document.getElementById(id);
+
+function fmtDateTime(iso) {
+  if (!iso) return '-';
+  return new Date(iso).toLocaleString('is-IS');
+}
+
+function parseCounter(counter) {
+  const employeeId = counter.employee_id ?? counter.employee ?? counter.employee_pk;
+  const projectId = counter.project_id ?? counter.project ?? counter.project_pk;
+  const ts = counter.created_at ?? counter.created ?? counter.timestamp ?? counter.time ?? counter.datetime;
+  return { employeeId, projectId, ts };
+}
+
+function dayKey(iso) {
+  return new Date(iso).toISOString().slice(0, 10);
+}
+
+function humanHoursSince(iso) {
+  const ms = Date.now() - new Date(iso).getTime();
+  const h = Math.max(0, ms / 1000 / 3600);
+  return `${h.toFixed(1)} klst`;
+}
+
+function byIdMap(list) {
+  const map = new Map();
+  list.forEach((item) => map.set(item.id ?? item.pk, item));
+  return map;
+}
+
+function getDisplayName(person) {
+  return person?.name || person?.full_name || person?.display_name || `${person?.first_name || ''} ${person?.last_name || ''}`.trim() || 'Óþekktur';
+}
+
+function getProjectName(project) {
+  return project?.name || project?.title || project?.project_name || `Verk #${project?.id || '?'}`;
+}
+
+function renderSummary(processed) {
+  const cards = [
+    ['Skráðir í dag', processed.totalTodayEmployees],
+    ['Virk verkefni í dag', processed.activeProjectsToday],
+    ['Samtals skráningar (7 dagar)', processed.signIns7d],
+    ['Fjölmennasta verkefni í dag', `${processed.mostStaffed.name} (${processed.mostStaffed.count})`],
+  ];
+
+  el('summaryCards').innerHTML = cards.map(([label, value]) => `
+    <article class="bg-white rounded-xl shadow p-4">
+      <p class="text-sm text-slate-500">${label}</p>
+      <p class="text-xl font-bold mt-1">${value}</p>
+    </article>
+  `).join('');
+}
+
+function renderToday(processed) {
+  const blocks = [];
+  processed.projectsSorted.forEach((p) => {
+    const rows = p.people.map((item) => `
+      <li class="flex justify-between items-center border-b py-2 text-sm">
+        <span class="font-medium">${item.name}</span>
+        <span class="text-slate-600">${new Date(item.ts).toLocaleTimeString('is-IS', { hour: '2-digit', minute: '2-digit' })} · ${humanHoursSince(item.ts)}</span>
+      </li>
+    `).join('');
+
+    blocks.push(`
+      <article class="bg-white rounded-xl shadow p-4">
+        <h3 class="font-bold">${p.name} <span class="text-slate-500 font-normal">(${p.people.length})</span></h3>
+        <ul class="mt-2">${rows || '<li class="text-sm text-slate-500 py-2">Engin skráning í dag</li>'}</ul>
+      </article>
+    `);
+  });
+
+  if (processed.zeroProjects.length) {
+    blocks.push(`
+      <details class="bg-white rounded-xl shadow p-4">
+        <summary class="cursor-pointer font-semibold">Verkefni án skráninga í dag (${processed.zeroProjects.length})</summary>
+        <ul class="mt-2 text-sm text-slate-600 list-disc pl-5">${processed.zeroProjects.map((n) => `<li>${n}</li>`).join('')}</ul>
+      </details>
+    `);
+  }
+
+  el('todayView').innerHTML = blocks.join('');
+}
+
+function colorForCount(count) {
+  if (count === 0) return 'bg-white';
+  if (count <= 5) return 'bg-blue-100';
+  if (count <= 10) return 'bg-blue-500 text-white';
+  return 'bg-green-500 text-white';
+}
+
+function renderWeekly(processed) {
+  const days = processed.days;
+  const table = [`<table class="min-w-full text-sm border-collapse"><thead><tr><th class="text-left p-2 border">Verkefni</th>${days.map(d => `<th class="p-2 border">${d}</th>`).join('')}</tr></thead><tbody>`];
+
+  processed.weeklyRows.forEach((row) => {
+    table.push(`<tr><td class="p-2 border font-medium">${row.projectName}</td>`);
+    days.forEach((d) => {
+      const people = row.byDay[d] || [];
+      const count = people.length;
+      table.push(`<td data-project="${row.projectName}" data-day="${d}" class="weekly-cell cursor-pointer p-2 border text-center ${colorForCount(count)}">${count}</td>`);
+    });
+    table.push('</tr>');
+  });
+
+  table.push('</tbody></table>');
+  el('weeklyView').innerHTML = table.join('');
+
+  document.querySelectorAll('.weekly-cell').forEach((cell) => {
+    cell.addEventListener('click', () => {
+      const proj = cell.dataset.project;
+      const d = cell.dataset.day;
+      const row = processed.weeklyRows.find(r => r.projectName === proj);
+      const list = row?.byDay[d] || [];
+      el('modalTitle').textContent = `${proj} — ${d}`;
+      el('modalList').innerHTML = list.length ? list.map(name => `<li>${name}</li>`).join('') : '<li>Enginn starfsmaður</li>';
+      el('employeeModal').classList.remove('hidden');
+    });
+  });
+}
+
+function renderEmployees(processed) {
+  const q = (el('employeeSearch').value || '').toLowerCase().trim();
+  const cards = processed.employeeTimeline
+    .filter(e => !q || e.name.toLowerCase().includes(q))
+    .map((e) => `
+      <article class="bg-white rounded-xl shadow p-4">
+        <h4 class="font-semibold mb-2">${e.name}</h4>
+        <div class="grid grid-cols-1 md:grid-cols-7 gap-2 text-xs">
+          ${processed.days.map((d) => `<div class="border rounded p-2"><p class="text-slate-500">${d}</p><p class="font-medium">${e.byDay[d] || '-'}</p></div>`).join('')}
+        </div>
+      </article>
+    `).join('');
+
+  el('employeeResults').innerHTML = cards || '<div class="bg-white rounded-xl shadow p-4 text-sm text-slate-600">Engar niðurstöður.</div>';
+}
+
+function processData(data) {
+  const employees = data.employees || [];
+  const projects = data.projects || [];
+  const counters = (data.counters || []).map(parseCounter).filter(c => c.employeeId && c.projectId && c.ts);
+  const employeeMap = byIdMap(employees);
+  const projectMap = byIdMap(projects);
+
+  const days = [];
+  const start = new Date(state.range.fromDate);
+  const end = new Date(state.range.toDate);
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    days.push(d.toISOString().slice(0, 10));
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  const todayCounters = counters.filter(c => dayKey(c.ts) === today);
+
+  const latestTodayByEmployeeProject = new Map();
+  todayCounters.forEach(c => {
+    const key = `${c.employeeId}:${c.projectId}`;
+    const prev = latestTodayByEmployeeProject.get(key);
+    if (!prev || new Date(c.ts) > new Date(prev.ts)) latestTodayByEmployeeProject.set(key, c);
+  });
+
+  const projectPeopleMap = new Map();
+  latestTodayByEmployeeProject.forEach((c) => {
+    if (!projectPeopleMap.has(c.projectId)) projectPeopleMap.set(c.projectId, []);
+    projectPeopleMap.get(c.projectId).push({
+      name: getDisplayName(employeeMap.get(c.employeeId)),
+      ts: c.ts,
+      employeeId: c.employeeId,
+    });
+  });
+
+  const projectsSorted = [...projectPeopleMap.entries()]
+    .map(([projectId, people]) => ({
+      name: getProjectName(projectMap.get(projectId)),
+      people: people.sort((a,b) => a.name.localeCompare(b.name, 'is')),
+    }))
+    .sort((a, b) => b.people.length - a.people.length);
+
+  const projectIdsWithToday = new Set([...projectPeopleMap.keys()]);
+  const zeroProjects = projects
+    .filter(p => !projectIdsWithToday.has(p.id ?? p.pk))
+    .map(getProjectName)
+    .sort((a, b) => a.localeCompare(b, 'is'));
+
+  const totalTodayEmployees = new Set(todayCounters.map(c => c.employeeId)).size;
+  const activeProjectsToday = projectIdsWithToday.size;
+  const signIns7d = counters.length;
+  const mostStaffed = projectsSorted[0] ? { name: projectsSorted[0].name, count: projectsSorted[0].people.length } : { name: '-', count: 0 };
+
+  const weeklyRows = projects.map((p) => {
+    const projectName = getProjectName(p);
+    const byDay = {};
+    days.forEach((d) => {
+      const names = new Set(
+        counters
+          .filter(c => (c.projectId === (p.id ?? p.pk)) && dayKey(c.ts) === d)
+          .map(c => getDisplayName(employeeMap.get(c.employeeId)))
+      );
+      byDay[d] = [...names].sort((a,b) => a.localeCompare(b, 'is'));
+    });
+    return { projectName, byDay };
+  });
+
+  const showInactive = el('showInactive').checked;
+  const employeeTimeline = employees
+    .map((e) => {
+      const id = e.id ?? e.pk;
+      const byDay = {};
+      days.forEach((d) => {
+        const dayCounter = counters
+          .filter(c => c.employeeId === id && dayKey(c.ts) === d)
+          .sort((a,b) => new Date(b.ts) - new Date(a.ts))[0];
+        byDay[d] = dayCounter ? getProjectName(projectMap.get(dayCounter.projectId)) : '';
+      });
+      return { name: getDisplayName(e), byDay, hasAny: Object.values(byDay).some(Boolean) };
+    })
+    .filter(e => showInactive || e.hasAny)
+    .sort((a,b) => a.name.localeCompare(b.name, 'is'));
+
+  return { totalTodayEmployees, activeProjectsToday, signIns7d, mostStaffed, projectsSorted, zeroProjects, weeklyRows, employeeTimeline, days };
+}
+
+function switchView(name) {
+  state.currentView = name;
+  ['today', 'weekly', 'employees'].forEach((v) => {
+    el(v + 'View').classList.toggle('hidden', v !== name);
+    document.querySelector(`[data-view="${v}"]`).className = `view-btn ${v === name ? 'bg-blue-700 text-white' : 'bg-slate-200'} px-3 py-2 rounded-lg text-sm`;
+  });
+}
+
+async function fetchConfig() {
+  const res = await fetch('/api/config');
+  state.config = await res.json();
+  el('localUrl').textContent = state.config.localUrl;
+  el('showInactive').checked = state.config.showInactive;
+  if (state.config.pinRequired && sessionStorage.getItem('pin-ok') !== '1') {
+    el('pinGate').classList.remove('hidden');
+  }
+  if (window.QRCode) {
+    el('qrCode').innerHTML = '';
+    new QRCode(el('qrCode'), { text: state.config.localUrl, width: 128, height: 128 });
+  }
+}
+
+async function loadData(force = false) {
+  const params = new URLSearchParams({ from_date: state.range.fromDate, to_date: state.range.toDate });
+  if (force) params.set('refresh', '1');
+  const res = await fetch(`/api/dashboard?${params.toString()}`);
+  const data = await res.json();
+  state.data = data;
+
+  const processed = processData(data);
+  renderSummary(processed);
+  renderToday(processed);
+  renderWeekly(processed);
+  renderEmployees(processed);
+
+  el('lastUpdated').textContent = `Síðast uppfært: ${fmtDateTime(data.fetchedAt)}`;
+  if (data.stale) {
+    el('staleWarning').classList.remove('hidden');
+    el('staleWarning').textContent = data.warning || 'Data may be stale';
+  } else {
+    el('staleWarning').classList.add('hidden');
+  }
+}
+
+function startCountdown() {
+  setInterval(async () => {
+    state.countdown -= 1;
+    if (state.countdown <= 0) {
+      state.countdown = state.refreshEvery;
+      try { await loadData(true); } catch (e) { console.error(e); }
+    }
+    const mm = String(Math.floor(state.countdown / 60)).padStart(2, '0');
+    const ss = String(state.countdown % 60).padStart(2, '0');
+    el('countdown').textContent = `Sjálfvirk uppfærsla eftir ${mm}:${ss}`;
+  }, 1000);
+}
+
+function initDates() {
+  const now = new Date();
+  const to = now.toISOString().slice(0,10);
+  const from = new Date(now.getTime() - 6 * 86400000).toISOString().slice(0,10);
+  state.range = { fromDate: from, toDate: to };
+  el('fromDate').value = from;
+  el('toDate').value = to;
+}
+
+async function saveSettings() {
+  const body = {
+    username: el('setUsername').value.trim(),
+    password: el('setPassword').value,
+    pin: el('setPin').value.trim(),
+    showInactive: el('showInactive').checked,
+  };
+  const res = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const data = await res.json();
+  el('settingsStatus').textContent = data.ok ? 'Vistað / Saved' : `Villa: ${data.message || 'Unknown error'}`;
+  if (data.ok) {
+    await fetchConfig();
+    await loadData(true);
+  }
+}
+
+async function verifyPin() {
+  const pin = el('pinInput').value;
+  const res = await fetch('/api/verify-pin', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin }) });
+  if (res.ok) {
+    sessionStorage.setItem('pin-ok', '1');
+    el('pinGate').classList.add('hidden');
+    return;
+  }
+  el('pinError').classList.remove('hidden');
+}
+
+function wireEvents() {
+  document.querySelectorAll('.view-btn').forEach(btn => btn.addEventListener('click', () => switchView(btn.dataset.view)));
+  el('refreshBtn').addEventListener('click', async () => { state.countdown = state.refreshEvery; await loadData(true); });
+  el('employeeSearch').addEventListener('input', () => {
+    if (!state.data) return;
+    renderEmployees(processData(state.data));
+  });
+
+  el('settingsBtn').addEventListener('click', () => el('settingsPanel').classList.remove('hidden'));
+  el('closeSettings').addEventListener('click', () => el('settingsPanel').classList.add('hidden'));
+  el('saveSettings').addEventListener('click', saveSettings);
+
+  el('fromDate').addEventListener('change', async (e) => { state.range.fromDate = e.target.value; await loadData(true); });
+  el('toDate').addEventListener('change', async (e) => { state.range.toDate = e.target.value; await loadData(true); });
+  el('showInactive').addEventListener('change', () => { if (state.data) renderEmployees(processData(state.data)); });
+
+  el('closeModal').addEventListener('click', () => el('employeeModal').classList.add('hidden'));
+  el('employeeModal').addEventListener('click', (e) => { if (e.target === el('employeeModal')) el('employeeModal').classList.add('hidden'); });
+
+  el('pinSubmit').addEventListener('click', verifyPin);
+}
+
+(async function boot() {
+  initDates();
+  wireEvents();
+  switchView('today');
+  await fetchConfig();
+  try {
+    await loadData();
+  } catch (e) {
+    console.error(e);
+    el('staleWarning').classList.remove('hidden');
+    el('staleWarning').textContent = 'Ekki tókst að hlaða gögnum. Athugaðu stillingar.';
+  }
+  startCountdown();
+})();
+</script>
+</body>
+</html>
